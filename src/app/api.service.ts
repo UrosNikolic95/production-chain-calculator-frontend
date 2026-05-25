@@ -1,0 +1,87 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+
+const API_BASE = 'http://localhost:3000';
+
+export interface Consumption {
+  id: number;
+  productionId: number;
+  consumedProductionId: number | null;
+  quantity: number;
+}
+
+export interface Production {
+  id: number;
+  workspaceId: number;
+  name: string;
+  productionQuantity: number;
+  targetQuantity: number;
+  productionLines: number;
+  productionTime: number;
+  consumptions: Consumption[];
+}
+
+export interface CalculationLine {
+  productionId: number;
+  name: string;
+  tasks: {
+    productionId: number;
+    name: string;
+    quantity: number;
+    startTime: number;
+    endTime: number;
+  }[];
+}
+
+export interface CalculationResult {
+  lines: CalculationLine[];
+}
+
+@Injectable({ providedIn: 'root' })
+export class ApiService {
+  private readonly http = inject(HttpClient);
+
+  listProductions(): Observable<Production[]> {
+    return this.http.get<Production[]>(`${API_BASE}/productions`);
+  }
+
+  createProduction(): Observable<Production> {
+    return this.http.post<Production>(`${API_BASE}/productions`, {});
+  }
+
+  updateProduction(
+    id: number,
+    patch: Partial<Production>,
+  ): Observable<Production> {
+    return this.http.patch<Production>(`${API_BASE}/productions/${id}`, patch);
+  }
+
+  deleteProduction(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_BASE}/productions/${id}`);
+  }
+
+  createConsumption(productionId: number): Observable<Consumption> {
+    return this.http.post<Consumption>(`${API_BASE}/consumptions`, {
+      productionId,
+    });
+  }
+
+  updateConsumption(
+    id: number,
+    patch: Partial<Consumption>,
+  ): Observable<Consumption> {
+    return this.http.patch<Consumption>(
+      `${API_BASE}/consumptions/${id}`,
+      patch,
+    );
+  }
+
+  deleteConsumption(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_BASE}/consumptions/${id}`);
+  }
+
+  calculate(): Observable<CalculationResult> {
+    return this.http.post<CalculationResult>(`${API_BASE}/calculate`, {});
+  }
+}

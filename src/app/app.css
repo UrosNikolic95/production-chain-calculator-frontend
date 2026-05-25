@@ -1,0 +1,83 @@
+:host {
+  display: block;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+table.grid {
+  border-collapse: collapse;
+}
+
+table.grid th,
+table.grid td {
+  border: 1px solid #ccc;
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+table.grid input[type='number'] {
+  width: 5em;
+}
+
+table.grid input[type='text'] {
+  width: 8em;
+}
+
+.consumptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.consumption {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  background: #f4f4f4;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+table.timeline {
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+}
+
+table.timeline td {
+  border: 1px solid #eee;
+  padding: 2px 6px;
+}
+
+.line-label {
+  min-width: 8em;
+  font-weight: 600;
+}
+
+.line-track {
+  min-width: 30cm;
+  height: 1cm;
+}
+
+.task {
+  display: inline-block;
+  height: 100%;
+  background: steelblue;
+  border-right: 1px solid white;
+  box-sizing: border-box;
+}
+
+.task:hover {
+  background: orange;
+}
