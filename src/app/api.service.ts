@@ -22,16 +22,21 @@ export interface Production {
   consumptions: Consumption[];
 }
 
+export interface CalculationTask {
+  id: number;
+  productionId: number;
+  name: string;
+  quantity: number;
+  startTime: number;
+  endTime: number;
+  dependsOnIds: number[];
+  requiredByIds: number[];
+}
+
 export interface CalculationLine {
   productionId: number;
   name: string;
-  tasks: {
-    productionId: number;
-    name: string;
-    quantity: number;
-    startTime: number;
-    endTime: number;
-  }[];
+  tasks: CalculationTask[];
 }
 
 export interface CalculationResult {

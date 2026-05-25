@@ -18,6 +18,23 @@ export class App implements OnInit {
 
   protected readonly productions = signal<Production[]>([]);
   protected readonly result = signal<CalculationResult | null>(null);
+  protected readonly hoveredTaskId = signal<number | null>(null);
+
+  protected hoverHighlight(taskId: number): 'dep' | 'req' | null {
+    const hovered = this.hoveredTaskId();
+    if (hovered == null || hovered === taskId) return null;
+    const r = this.result();
+    if (!r) return null;
+    for (const line of r.lines) {
+      for (const t of line.tasks) {
+        if (t.id !== hovered) continue;
+        if (t.dependsOnIds.includes(taskId)) return 'dep';
+        if (t.requiredByIds.includes(taskId)) return 'req';
+        return null;
+      }
+    }
+    return null;
+  }
 
   ngOnInit(): void {
     this.api.listProductions().subscribe((rows) => this.productions.set(rows));
