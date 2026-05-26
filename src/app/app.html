@@ -84,6 +84,10 @@
     <button type="button" (click)="calculate()">Calculate</button>
   </div>
 
+  @if (calculateError(); as error) {
+    <p class="calculate-error">{{ error }}</p>
+  }
+
   @if (result(); as r) {
     <h2>Timeline</h2>
     <div class="timeline-scroll">

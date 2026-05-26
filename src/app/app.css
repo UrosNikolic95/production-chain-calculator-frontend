@@ -50,6 +50,11 @@ table.grid input[type='text'] {
   gap: 8px;
 }
 
+.calculate-error {
+  margin: 8px 0 0;
+  color: #c00;
+}
+
 .timeline-scroll {
   overflow: auto;
   max-width: 100%;

@@ -19,6 +19,7 @@ export class App implements OnInit {
   protected readonly productions = signal<Production[]>([]);
   protected readonly result = signal<CalculationResult | null>(null);
   protected readonly hoveredTaskId = signal<number | null>(null);
+  protected readonly calculateError = signal<string | null>(null);
 
   protected hoverHighlight(taskId: number): 'dep' | 'req' | null {
     const hovered = this.hoveredTaskId();
@@ -107,6 +108,15 @@ export class App implements OnInit {
   }
 
   calculate(): void {
-    this.api.calculate().subscribe((res) => this.result.set(res));
+    this.calculateError.set(null);
+    this.api.calculate().subscribe({
+      next: (res) => this.result.set(res),
+      error: (err) => {
+        this.result.set(null);
+        this.calculateError.set(
+          err?.error?.message ?? err?.message ?? 'Calculation failed.',
+        );
+      },
+    });
   }
 }
