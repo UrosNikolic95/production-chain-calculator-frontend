@@ -1,142 +1,190 @@
+<header class="app-header">
+  <div class="app-header__inner">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <h1>Production Chain Calculator</h1>
+    </div>
+    <div class="workspace-bar">
+      <label class="field">
+        <span class="field__label">Workspace</span>
+        <select
+          #workspaceSelect
+          class="control control--select"
+          [value]="workspace()?.id ?? ''"
+          (change)="onWorkspaceChange(+workspaceSelect.value)"
+        >
+          @for (ws of workspaces(); track ws.id) {
+            <option [value]="ws.id">{{ ws.name }}</option>
+          }
+        </select>
+      </label>
+      <button type="button" class="btn btn--ghost" (click)="createWorkspace()">
+        + New workspace
+      </button>
+    </div>
+  </div>
+</header>
+
 <main>
-  <h1>Production chain calculator</h1>
-  <div class="workspace-bar">
-    <label>
-      Workspace:
-      <select
-        #workspaceSelect
-        [value]="workspace()?.id ?? ''"
-        (change)="onWorkspaceChange(+workspaceSelect.value)"
-      >
-        @for (ws of workspaces(); track ws.id) {
-          <option [value]="ws.id">{{ ws.name }}</option>
-        }
-      </select>
-    </label>
-    <button type="button" (click)="createWorkspace()">+ New workspace</button>
-  </div>
+  <section class="card">
+    <div class="card__header">
+      <h2 class="card__title">Productions</h2>
+    </div>
 
-  <table class="grid">
-    <thead>
-      <tr>
-        <th>Production quantity</th>
-        <th>Production type</th>
-        <th>Target quantity</th>
-        <th>Production lines</th>
-        <th>Production time</th>
-        <th>Consumed</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (p of productions(); track p.id) {
-        <tr>
-          <td>
-            <input
-              type="number"
-              [(ngModel)]="p.productionQuantity"
-              (blur)="saveProduction(p, 'productionQuantity')"
-            />
-          </td>
-          <td>
-            <input
-              type="text"
-              [(ngModel)]="p.name"
-              (blur)="saveProduction(p, 'name')"
-            />
-          </td>
-          <td>
-            <input
-              type="number"
-              [(ngModel)]="p.targetQuantity"
-              (blur)="saveProduction(p, 'targetQuantity')"
-            />
-          </td>
-          <td>
-            <input
-              type="number"
-              [(ngModel)]="p.productionLines"
-              (blur)="saveProduction(p, 'productionLines')"
-            />
-          </td>
-          <td>
-            <input
-              type="number"
-              [(ngModel)]="p.productionTime"
-              (blur)="saveProduction(p, 'productionTime')"
-            />
-          </td>
-          <td>
-            <div class="consumptions">
-              @for (c of p.consumptions; track c.id) {
-                <span class="consumption">
-                  <input
-                    type="number"
-                    [(ngModel)]="c.quantity"
-                    (blur)="saveConsumption(c, 'quantity')"
-                  />
-                  <select
-                    [ngModel]="c.consumedProductionId"
-                    (ngModelChange)="onConsumedChange(c, $event)"
-                  >
-                    <option [ngValue]="null">—</option>
-                    @for (res of consumableResources(p); track res.id) {
-                      <option [ngValue]="res.id">{{ res.name }}</option>
-                    }
-                  </select>
-                  <button type="button" (click)="deleteConsumption(p, c)">×</button>
-                </span>
-              }
-              <button type="button" (click)="addConsumption(p)">+</button>
-            </div>
-          </td>
-          <td>
-            <button type="button" (click)="deleteRow(p)">×</button>
-          </td>
-        </tr>
-      }
-    </tbody>
-  </table>
-
-  <div class="actions">
-    <button type="button" (click)="addRow()">+ Add row</button>
-    <button type="button" (click)="calculate()">Calculate</button>
-  </div>
-
-  @if (calculateError(); as error) {
-    <p class="calculate-error">{{ error }}</p>
-  }
-
-  @if (result(); as r) {
-    <h2>Timeline</h2>
-    <div class="timeline-scroll">
-      <table class="timeline">
-        @for (line of r.lines; track $index) {
+    <div class="table-scroll">
+      <table class="grid">
+        <thead>
           <tr>
-            <td class="line-label">{{ line.name }}</td>
-            <td class="line-track">
-              @for (t of line.tasks; track t.id) {
-                <div
-                  class="task"
-                  [class.dep-highlight]="hoverHighlight(t.id) === 'dep'"
-                  [class.req-highlight]="hoverHighlight(t.id) === 'req'"
-                  [class.self-highlight]="hoveredTaskId() === t.id"
-                  (mouseenter)="hoveredTaskId.set(t.id); showTooltip(t, $event)"
-                  (mousemove)="moveTooltip($event)"
-                  (mouseleave)="hoveredTaskId.set(null); hideTooltip()"
-                  [style.marginLeft.cm]="
-                    $index === 0
-                      ? t.startTime
-                      : t.startTime - line.tasks[$index - 1].endTime
-                  "
-                  [style.width.cm]="t.endTime - t.startTime"
-                ></div>
-              }
-            </td>
+            <th>Production quantity</th>
+            <th>Production type</th>
+            <th>Target quantity</th>
+            <th>Production lines</th>
+            <th>Production time</th>
+            <th>Consumed</th>
+            <th class="grid__actions-col"></th>
           </tr>
-        }
+        </thead>
+        <tbody>
+          @for (p of productions(); track p.id) {
+            <tr>
+              <td>
+                <input
+                  class="control"
+                  type="number"
+                  [(ngModel)]="p.productionQuantity"
+                  (blur)="saveProduction(p, 'productionQuantity')"
+                />
+              </td>
+              <td>
+                <input
+                  class="control"
+                  type="text"
+                  [(ngModel)]="p.name"
+                  (blur)="saveProduction(p, 'name')"
+                />
+              </td>
+              <td>
+                <input
+                  class="control"
+                  type="number"
+                  [(ngModel)]="p.targetQuantity"
+                  (blur)="saveProduction(p, 'targetQuantity')"
+                />
+              </td>
+              <td>
+                <input
+                  class="control"
+                  type="number"
+                  [(ngModel)]="p.productionLines"
+                  (blur)="saveProduction(p, 'productionLines')"
+                />
+              </td>
+              <td>
+                <input
+                  class="control"
+                  type="number"
+                  [(ngModel)]="p.productionTime"
+                  (blur)="saveProduction(p, 'productionTime')"
+                />
+              </td>
+              <td>
+                <div class="consumptions">
+                  @for (c of p.consumptions; track c.id) {
+                    <span class="consumption">
+                      <input
+                        class="control control--inline"
+                        type="number"
+                        [(ngModel)]="c.quantity"
+                        (blur)="saveConsumption(c, 'quantity')"
+                      />
+                      <select
+                        class="control control--select control--inline"
+                        [ngModel]="c.consumedProductionId"
+                        (ngModelChange)="onConsumedChange(c, $event)"
+                      >
+                        <option [ngValue]="null">—</option>
+                        @for (res of consumableResources(p); track res.id) {
+                          <option [ngValue]="res.id">{{ res.name }}</option>
+                        }
+                      </select>
+                      <button
+                        type="button"
+                        class="btn btn--icon btn--icon-danger"
+                        title="Remove consumption"
+                        (click)="deleteConsumption(p, c)"
+                      >×</button>
+                    </span>
+                  }
+                  <button
+                    type="button"
+                    class="btn btn--icon"
+                    title="Add consumption"
+                    (click)="addConsumption(p)"
+                  >+</button>
+                </div>
+              </td>
+              <td class="grid__actions-col">
+                <button
+                  type="button"
+                  class="btn btn--icon btn--icon-danger"
+                  title="Delete row"
+                  (click)="deleteRow(p)"
+                >×</button>
+              </td>
+            </tr>
+          }
+        </tbody>
       </table>
     </div>
+
+    <div class="actions actions--footer">
+      <button type="button" class="btn btn--secondary" (click)="addRow()">
+        + Add row
+      </button>
+      <button type="button" class="btn btn--primary" (click)="calculate()">
+        Calculate
+      </button>
+    </div>
+
+    @if (calculateError(); as error) {
+      <p class="calculate-error">{{ error }}</p>
+    }
+  </section>
+
+  @if (result(); as r) {
+    <section class="card">
+      <div class="card__header">
+        <h2 class="card__title">Timeline</h2>
+      </div>
+      <div class="timeline-scroll">
+        <table class="timeline">
+          @for (line of r.lines; track $index) {
+            <tr>
+              <td class="line-label">{{ line.name }}</td>
+              <td class="line-track">
+                @for (t of line.tasks; track t.id) {
+                  <div
+                    class="task"
+                    [class.dep-highlight]="hoverHighlight(t.id) === 'dep'"
+                    [class.req-highlight]="hoverHighlight(t.id) === 'req'"
+                    [class.self-highlight]="hoveredTaskId() === t.id"
+                    (mouseenter)="hoveredTaskId.set(t.id); showTooltip(t, $event)"
+                    (mousemove)="moveTooltip($event)"
+                    (mouseleave)="hoveredTaskId.set(null); hideTooltip()"
+                    [style.marginLeft.cm]="
+                      $index === 0
+                        ? t.startTime
+                        : t.startTime - line.tasks[$index - 1].endTime
+                    "
+                    [style.width.cm]="t.endTime - t.startTime"
+                  ></div>
+                }
+              </td>
+            </tr>
+          }
+        </table>
+      </div>
+    </section>
   }
 
   @if (tooltip(); as tip) {
