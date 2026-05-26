@@ -285,6 +285,12 @@ table.grid tbody tr:hover {
   text-align: center;
 }
 
+/* Delete-row (×) — square, matching input height */
+table.grid td.grid__actions-col > .btn--icon {
+  width: 35px;
+  height: 35px;
+}
+
 /* ---------- Consumptions ---------- */
 
 .consumptions {
@@ -304,9 +310,11 @@ table.grid tbody tr:hover {
   padding: 4px 6px;
 }
 
-.consumption .btn--icon {
-  width: 22px;
-  height: 22px;
+/* Delete-consumption (×) and add-consumption (+) — square, matching input height */
+.consumption .btn--icon,
+.consumptions > .btn--icon {
+  width: 31px;
+  height: 31px;
   font-size: 0.95rem;
 }
 
