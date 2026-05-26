@@ -129,16 +129,7 @@
                       : t.startTime - line.tasks[$index - 1].endTime
                   "
                   [style.width.cm]="t.endTime - t.startTime"
-                  [title]="
-                    t.name +
-                    ' qty=' +
-                    t.quantity +
-                    ' [' +
-                    t.startTime.toFixed(2) +
-                    ', ' +
-                    t.endTime.toFixed(2) +
-                    ']'
-                  "
+                  [title]="taskTooltip(t)"
                 ></div>
               }
             </td>

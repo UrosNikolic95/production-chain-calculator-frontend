@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import {
   ApiService,
   CalculationResult,
+  CalculationTask,
   Consumption,
   Production,
   Workspace,
@@ -23,6 +24,16 @@ export class App implements OnInit {
   protected readonly result = signal<CalculationResult | null>(null);
   protected readonly hoveredTaskId = signal<number | null>(null);
   protected readonly calculateError = signal<string | null>(null);
+
+  protected taskTooltip(t: CalculationTask): string {
+    return [
+      `Resource: ${t.name}`,
+      `Start time: ${t.startTime.toFixed(2)}`,
+      `End time: ${t.endTime.toFixed(2)}`,
+      `Length: ${(t.endTime - t.startTime).toFixed(2)}`,
+      `Quantity: ${t.quantity}`,
+    ].join('\n');
+  }
 
   protected hoverHighlight(taskId: number): 'dep' | 'req' | null {
     const hovered = this.hoveredTaskId();
