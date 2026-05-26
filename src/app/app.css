@@ -4,6 +4,17 @@
   font-family: system-ui, sans-serif;
 }
 
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 main {
   display: flex;
   flex-direction: column;
@@ -21,12 +32,13 @@ table.grid td {
   vertical-align: middle;
 }
 
-table.grid input[type='number'] {
-  width: 5em;
+table.grid td > input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
-table.grid input[type='text'] {
-  width: 8em;
+.consumptions input[type='number'] {
+  width: 5em;
 }
 
 .consumptions {
