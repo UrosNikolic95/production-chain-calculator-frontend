@@ -25,6 +25,30 @@ export class App implements OnInit {
   protected readonly hoveredTaskId = signal<number | null>(null);
   protected readonly calculateError = signal<string | null>(null);
 
+  protected readonly tooltip = signal<{
+    text: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  protected showTooltip(t: CalculationTask, event: MouseEvent): void {
+    this.tooltip.set({
+      text: this.taskTooltip(t),
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  protected moveTooltip(event: MouseEvent): void {
+    this.tooltip.update((tip) =>
+      tip ? { ...tip, x: event.clientX, y: event.clientY } : tip,
+    );
+  }
+
+  protected hideTooltip(): void {
+    this.tooltip.set(null);
+  }
+
   protected taskTooltip(t: CalculationTask): string {
     return [
       `Resource: ${t.name}`,

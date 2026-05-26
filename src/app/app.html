@@ -121,15 +121,15 @@
                   [class.dep-highlight]="hoverHighlight(t.id) === 'dep'"
                   [class.req-highlight]="hoverHighlight(t.id) === 'req'"
                   [class.self-highlight]="hoveredTaskId() === t.id"
-                  (mouseenter)="hoveredTaskId.set(t.id)"
-                  (mouseleave)="hoveredTaskId.set(null)"
+                  (mouseenter)="hoveredTaskId.set(t.id); showTooltip(t, $event)"
+                  (mousemove)="moveTooltip($event)"
+                  (mouseleave)="hoveredTaskId.set(null); hideTooltip()"
                   [style.marginLeft.cm]="
                     $index === 0
                       ? t.startTime
                       : t.startTime - line.tasks[$index - 1].endTime
                   "
                   [style.width.cm]="t.endTime - t.startTime"
-                  [title]="taskTooltip(t)"
                 ></div>
               }
             </td>
@@ -137,5 +137,13 @@
         }
       </table>
     </div>
+  }
+
+  @if (tooltip(); as tip) {
+    <div
+      class="task-tooltip"
+      [style.left.px]="tip.x + 12"
+      [style.top.px]="tip.y + 12"
+    >{{ tip.text }}</div>
   }
 </main>
