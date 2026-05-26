@@ -75,11 +75,15 @@
                     [(ngModel)]="c.quantity"
                     (blur)="saveConsumption(c, 'quantity')"
                   />
-                  <input
-                    type="text"
-                    [ngModel]="consumedName(c)"
-                    (ngModelChange)="onConsumedNameChange(c, $event)"
-                  />
+                  <select
+                    [ngModel]="c.consumedProductionId"
+                    (ngModelChange)="onConsumedChange(c, $event)"
+                  >
+                    <option [ngValue]="null">—</option>
+                    @for (res of consumableResources(p); track res.id) {
+                      <option [ngValue]="res.id">{{ res.name }}</option>
+                    }
+                  </select>
                   <button type="button" (click)="deleteConsumption(p, c)">×</button>
                 </span>
               }

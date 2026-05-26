@@ -120,18 +120,14 @@ export class App implements OnInit {
     this.api.updateConsumption(c.id, patch).subscribe();
   }
 
-  onConsumedNameChange(c: Consumption, name: string): void {
-    const target = this.productions().find((p) => p.name === name.trim());
-    c.consumedProductionId = target ? target.id : null;
+  onConsumedChange(c: Consumption, value: number | null): void {
+    c.consumedProductionId = value ?? null;
     this.saveConsumption(c, 'consumedProductionId');
   }
 
-  consumedName(c: Consumption): string {
-    if (c.consumedProductionId == null) return '';
-    return (
-      this.productions().find((p) => p.id === c.consumedProductionId)?.name ??
-      ''
-    );
+  // Resources available to consume: other productions in the current workspace.
+  consumableResources(p: Production): Production[] {
+    return this.productions().filter((r) => r.id !== p.id && !!r.name.trim());
   }
 
   calculate(): void {
