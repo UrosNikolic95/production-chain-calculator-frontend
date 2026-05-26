@@ -4,6 +4,12 @@ import { Observable } from 'rxjs';
 
 const API_BASE = 'http://localhost:3000';
 
+export interface Workspace {
+  id: number;
+  userId: number;
+  name: string;
+}
+
 export interface Consumption {
   id: number;
   productionId: number;
@@ -46,6 +52,22 @@ export interface CalculationResult {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+
+  listWorkspaces(): Observable<Workspace[]> {
+    return this.http.get<Workspace[]>(`${API_BASE}/workspaces`);
+  }
+
+  getWorkspace(): Observable<Workspace> {
+    return this.http.get<Workspace>(`${API_BASE}/workspaces/current`);
+  }
+
+  createWorkspace(name: string): Observable<Workspace> {
+    return this.http.post<Workspace>(`${API_BASE}/workspaces`, { name });
+  }
+
+  selectWorkspace(id: number): Observable<Workspace> {
+    return this.http.post<Workspace>(`${API_BASE}/workspaces/select`, { id });
+  }
 
   listProductions(): Observable<Production[]> {
     return this.http.get<Production[]>(`${API_BASE}/productions`);

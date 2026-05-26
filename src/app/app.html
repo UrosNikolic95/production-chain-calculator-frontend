@@ -1,5 +1,20 @@
 <main>
   <h1>Production chain calculator</h1>
+  <div class="workspace-bar">
+    <label>
+      Workspace:
+      <select
+        #workspaceSelect
+        [value]="workspace()?.id ?? ''"
+        (change)="onWorkspaceChange(+workspaceSelect.value)"
+      >
+        @for (ws of workspaces(); track ws.id) {
+          <option [value]="ws.id">{{ ws.name }}</option>
+        }
+      </select>
+    </label>
+    <button type="button" (click)="createWorkspace()">+ New workspace</button>
+  </div>
 
   <table class="grid">
     <thead>

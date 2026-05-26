@@ -5,6 +5,7 @@ import {
   CalculationResult,
   Consumption,
   Production,
+  Workspace,
 } from './api.service';
 
 @Component({
@@ -16,6 +17,8 @@ import {
 export class App implements OnInit {
   private readonly api = inject(ApiService);
 
+  protected readonly workspace = signal<Workspace | null>(null);
+  protected readonly workspaces = signal<Workspace[]>([]);
   protected readonly productions = signal<Production[]>([]);
   protected readonly result = signal<CalculationResult | null>(null);
   protected readonly hoveredTaskId = signal<number | null>(null);
@@ -38,6 +41,30 @@ export class App implements OnInit {
   }
 
   ngOnInit(): void {
+    this.api.getWorkspace().subscribe((ws) => this.workspace.set(ws));
+    this.api.listWorkspaces().subscribe((rows) => this.workspaces.set(rows));
+    this.api.listProductions().subscribe((rows) => this.productions.set(rows));
+  }
+
+  createWorkspace(): void {
+    const name = (prompt('New workspace name') ?? '').trim();
+    if (!name) return;
+    this.api.createWorkspace(name).subscribe((ws) => {
+      this.workspaces.update((rows) => [...rows, ws]);
+      this.activateWorkspace(ws);
+    });
+  }
+
+  onWorkspaceChange(id: number): void {
+    const ws = this.workspaces().find((w) => w.id === id);
+    if (!ws || ws.id === this.workspace()?.id) return;
+    this.api.selectWorkspace(ws.id).subscribe(() => this.activateWorkspace(ws));
+  }
+
+  private activateWorkspace(ws: Workspace): void {
+    this.workspace.set(ws);
+    this.result.set(null);
+    this.calculateError.set(null);
     this.api.listProductions().subscribe((rows) => this.productions.set(rows));
   }
 

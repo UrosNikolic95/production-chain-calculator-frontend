@@ -45,6 +45,18 @@ table.grid input[type='text'] {
   padding: 2px 4px;
 }
 
+.workspace-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 16px;
+  color: #666;
+}
+
+.workspace-bar select {
+  margin-left: 6px;
+}
+
 .actions {
   display: flex;
   gap: 8px;
