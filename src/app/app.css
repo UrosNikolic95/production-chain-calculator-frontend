@@ -29,8 +29,8 @@
 .brand__mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--color-accent), #818cf8);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   box-shadow: var(--shadow-sm);
 }
 
@@ -174,6 +174,7 @@ input[type='number'] {
 .btn--primary {
   background: var(--color-accent);
   color: #fff;
+  font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
 
@@ -336,8 +337,9 @@ table.grid td.grid__actions-col > .btn--icon {
   z-index: 1000;
   pointer-events: none;
   white-space: pre;
-  background: var(--color-text);
-  color: #fff;
+  background: #060708;
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
   padding: 8px 10px;
   border-radius: var(--radius-md);
   font-size: 0.78rem;
@@ -389,14 +391,14 @@ table.timeline td {
 .task {
   display: inline-block;
   height: 100%;
-  background: var(--color-accent);
-  border-right: 1px solid #fff;
+  background: #5b6675;
+  border-right: 1px solid var(--color-surface);
   box-sizing: border-box;
   transition: background-color 0.1s ease;
 }
 
 .task.self-highlight {
-  background: #f59e0b;
+  background: var(--color-accent);
 }
 
 .task.dep-highlight {
