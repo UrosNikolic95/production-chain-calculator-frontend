@@ -1,8 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../environments/environment';
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = environment.apiBase;
 
 export interface Workspace {
   id: number;
