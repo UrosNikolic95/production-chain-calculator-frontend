@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eu
 
 docker build -t pcc-frontend .
 docker rm -f pcc-frontend 2>/dev/null || true
