@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -eu
 
-docker build -t pcc-frontend .
-docker rm -f pcc-frontend 2>/dev/null || true
-docker run -d --rm -p 8080:80 --name pcc-frontend pcc-frontend
+# Pull the latest code and force the working tree to match origin/main
+git fetch origin
+git reset --hard origin/main
+
+# Build the app (static output lands in dist/production-chain-calculator-frontend/browser)
+npm ci
+npm run build
