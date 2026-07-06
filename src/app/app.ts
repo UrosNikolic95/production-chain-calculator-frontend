@@ -7,6 +7,7 @@ import {
   CalculationTask,
   Consumption,
   Production,
+  ProductionLine,
   Workspace,
 } from './api.service';
 
@@ -16,14 +17,33 @@ interface MapPos {
   y: number;
 }
 
-/** Transport mode: how goods move between production lines. */
-type TransportMode = 'instant' | 'random' | 'manual';
+/**
+ * One physical production line of a resource. A resource (production) with a
+ * `productionLines` value of N owns N lines, each independently placed on the
+ * map. Positions are keyed by the ProductionLine id.
+ */
+interface LineSlot {
+  id: number;
+  productionId: number;
+  lineIndex: number;
+  /** Production name. */
+  name: string;
+  /** Total lines on the parent production (used to label "#2" etc.). */
+  lineCount: number;
+}
+
+/**
+ * Logistics mode. `off` hides the map and treats transport as instant; the
+ * other three show the map: `view` just displays the existing locations,
+ * `random` re-scatters them, `manual` lets you click to place each line.
+ */
+type TransportMode = 'off' | 'view' | 'random' | 'manual';
 
 /** A derived transport leg shown as its own task in the timeline. */
 interface TransportEdge {
   id: string;
   label: string;
-  /** Producer/consumer production ids (used for distance). */
+  /** Producer/consumer production line ids (used for distance). */
   fromId: number;
   toId: number;
   /** Producer/consumer timeline task ids (used for hover highlighting). */
@@ -62,11 +82,11 @@ export class App implements OnInit {
 
   // ---------- Logistics map ----------
 
-  protected readonly transportMode = signal<TransportMode>('instant');
+  protected readonly transportMode = signal<TransportMode>('off');
   protected readonly transportSpeed = signal<number>(20);
-  /** Positions keyed by production id, in percent (0–100) of the map. */
+  /** Positions keyed by ProductionLine id, in percent (0–100) of the map. */
   protected readonly positions = signal<Record<number, MapPos>>({});
-  /** Production ids waiting to be placed manually, in placement order. */
+  /** ProductionLine ids waiting to be placed manually, in placement order. */
   protected readonly placementQueue = signal<number[]>([]);
 
   protected readonly tooltip = signal<{
@@ -155,21 +175,38 @@ export class App implements OnInit {
     });
   }
 
-  /** Keep map state consistent after the production set changes. */
+  /**
+   * Keep map state consistent after the production/line set changes: seed newly
+   * added lines from their persisted backend position, keep positions already
+   * placed this session, and drop lines that no longer exist.
+   */
   private syncPositions(): void {
-    this.prunePositions();
+    const slots = this.lineSlots();
+    const ids = new Set(slots.map((s) => s.id));
+    this.positions.update((pos) => {
+      const next: Record<number, MapPos> = {};
+      for (const s of slots) {
+        if (pos[s.id]) {
+          next[s.id] = pos[s.id];
+        } else {
+          const line = this.lineById(s.id);
+          if (line) next[s.id] = { x: line.positionX, y: line.positionY };
+        }
+      }
+      return next;
+    });
+    this.placementQueue.update((q) => q.filter((id) => ids.has(id)));
+
     if (this.transportMode() === 'manual') {
-      // Queue any newly added, still-unplaced productions.
+      // Queue any newly added, still-unplaced lines.
       const pos = this.positions();
       const queued = new Set(this.placementQueue());
-      const missing = this.productions()
-        .filter((p) => !pos[p.id] && !queued.has(p.id))
-        .map((p) => p.id);
+      const missing = slots
+        .filter((s) => !pos[s.id] && !queued.has(s.id))
+        .map((s) => s.id);
       if (missing.length) {
         this.placementQueue.update((q) => [...q, ...missing]);
       }
-    } else {
-      this.ensurePositions();
     }
   }
 
@@ -215,7 +252,15 @@ export class App implements OnInit {
 
   saveProduction(p: Production, field: keyof Production): void {
     const patch = { [field]: p[field] } as Partial<Production>;
-    this.api.updateProduction(p.id, patch).subscribe();
+    this.api.updateProduction(p.id, patch).subscribe((res) => {
+      // Changing the line count adds/removes line rows on the backend; adopt the
+      // refreshed set so the map shows one pin per line.
+      if (field === 'productionLines' && res.lines) {
+        p.lines = res.lines;
+        this.productions.update((rows) => [...rows]);
+        this.syncPositions();
+      }
+    });
   }
 
   addConsumption(p: Production): void {
@@ -262,7 +307,35 @@ export class App implements OnInit {
 
   // ---------- Logistics map ----------
 
-  /** The production id currently selected for placement (front of the queue). */
+  /** Every physical production line, one entry per line of every production. */
+  protected readonly lineSlots = computed<LineSlot[]>(() => {
+    const out: LineSlot[] = [];
+    for (const p of this.productions()) {
+      const lines = (p.lines ?? [])
+        .slice()
+        .sort((a, b) => a.lineIndex - b.lineIndex);
+      for (const l of lines) {
+        out.push({
+          id: l.id,
+          productionId: p.id,
+          lineIndex: l.lineIndex,
+          name: p.name,
+          lineCount: lines.length,
+        });
+      }
+    }
+    return out;
+  });
+
+  private lineById(id: number): ProductionLine | undefined {
+    for (const p of this.productions()) {
+      const l = (p.lines ?? []).find((x) => x.id === id);
+      if (l) return l;
+    }
+    return undefined;
+  }
+
+  /** The line id currently selected for placement (front of the queue). */
   protected readonly selectedForPlacement = computed<number | null>(
     () => this.placementQueue()[0] ?? null,
   );
@@ -271,24 +344,39 @@ export class App implements OnInit {
     () => this.transportMode() === 'manual' && this.placementQueue().length > 0,
   );
 
-  /** Productions that have a position on the map. */
-  protected readonly placedProductions = computed<Production[]>(() => {
+  /** Production lines that have a position on the map. */
+  protected readonly placedLines = computed<LineSlot[]>(() => {
     const pos = this.positions();
-    return this.productions().filter((p) => pos[p.id]);
+    return this.lineSlots().filter((s) => pos[s.id]);
   });
 
-  /** Supply routes: a line from each consumed production to its consumer. */
+  /**
+   * Supply routes: a segment from every line of a consumed production to every
+   * line of its consumer.
+   */
   protected readonly routes = computed<MapRoute[]>(() => {
     const pos = this.positions();
+    const byProduction = new Map<number, LineSlot[]>();
+    for (const s of this.lineSlots()) {
+      const arr = byProduction.get(s.productionId) ?? [];
+      arr.push(s);
+      byProduction.set(s.productionId, arr);
+    }
     const out: MapRoute[] = [];
     for (const p of this.productions()) {
-      const to = pos[p.id];
-      if (!to) continue;
+      const toSlots = byProduction.get(p.id) ?? [];
       for (const c of p.consumptions ?? []) {
         if (c.consumedProductionId == null) continue;
-        const from = pos[c.consumedProductionId];
-        if (!from) continue;
-        out.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y });
+        const fromSlots = byProduction.get(c.consumedProductionId) ?? [];
+        for (const from of fromSlots) {
+          const a = pos[from.id];
+          if (!a) continue;
+          for (const to of toSlots) {
+            const b = pos[to.id];
+            if (!b) continue;
+            out.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+          }
+        }
       }
     }
     return out;
@@ -298,9 +386,27 @@ export class App implements OnInit {
     return this.positions()[id];
   }
 
-  protected productionName(id: number): string {
-    const p = this.productions().find((r) => r.id === id);
-    return p?.name?.trim() || `Line ${id}`;
+  /** Display label for a line: name, suffixed with "#n" when it has siblings. */
+  protected slotLabel(s: LineSlot): string {
+    const base = s.name?.trim() || `Line ${s.productionId}`;
+    return s.lineCount > 1 ? `${base} #${s.lineIndex + 1}` : base;
+  }
+
+  protected lineLabel(id: number): string {
+    const s = this.lineSlots().find((x) => x.id === id);
+    return s ? this.slotLabel(s) : `Line ${id}`;
+  }
+
+  private lineCountOf(productionId: number): number {
+    return (
+      this.productions().find((p) => p.id === productionId)?.lines?.length ?? 1
+    );
+  }
+
+  /** Label a calculation task/line, adding "#n" when the production has siblings. */
+  protected taskLineLabel(name: string, productionId: number, lineIndex: number): string {
+    const base = name?.trim() || `Line ${productionId}`;
+    return this.lineCountOf(productionId) > 1 ? `${base} #${lineIndex + 1}` : base;
   }
 
   private randomPos(): MapPos {
@@ -308,53 +414,40 @@ export class App implements OnInit {
     return { x: 8 + Math.random() * 84, y: 10 + Math.random() * 80 };
   }
 
-  /** Give every production without a position a random one (non-manual modes). */
-  private ensurePositions(): void {
-    this.positions.update((pos) => {
-      const next = { ...pos };
-      let changed = false;
-      for (const p of this.productions()) {
-        if (!next[p.id]) {
-          next[p.id] = this.randomPos();
-          changed = true;
-        }
-      }
-      return changed ? next : pos;
-    });
+  private persistPosition(lineId: number, pos: MapPos): void {
+    this.api
+      .updateProductionLine(lineId, { positionX: pos.x, positionY: pos.y })
+      .subscribe();
   }
 
-  /** Drop positions for productions that no longer exist. */
-  private prunePositions(): void {
-    const ids = new Set(this.productions().map((p) => p.id));
-    this.positions.update((pos) => {
-      const next: Record<number, MapPos> = {};
-      for (const [k, v] of Object.entries(pos)) {
-        if (ids.has(+k)) next[+k] = v;
-      }
-      return next;
-    });
-    this.placementQueue.update((q) => q.filter((id) => ids.has(id)));
+  /** Show the map, displaying the lines' already-existing locations. */
+  protected setWithMap(): void {
+    if (this.transportMode() === 'off') this.transportMode.set('view');
   }
 
-  protected setInstant(): void {
-    this.transportMode.set('instant');
+  /** Hide the map; transport becomes instant. */
+  protected setWithoutMap(): void {
+    this.transportMode.set('off');
     this.placementQueue.set([]);
-    this.ensurePositions();
   }
 
   protected setRandom(): void {
     this.transportMode.set('random');
     this.placementQueue.set([]);
     const next: Record<number, MapPos> = {};
-    for (const p of this.productions()) next[p.id] = this.randomPos();
+    for (const s of this.lineSlots()) {
+      const pos = this.randomPos();
+      next[s.id] = pos;
+      this.persistPosition(s.id, pos);
+    }
     this.positions.set(next);
   }
 
   protected setManual(): void {
     this.transportMode.set('manual');
-    // Clear the map and queue every production up for manual placement.
+    // Clear the map and queue every production line up for manual placement.
     this.positions.set({});
-    this.placementQueue.set(this.productions().map((p) => p.id));
+    this.placementQueue.set(this.lineSlots().map((s) => s.id));
   }
 
   protected onMapClick(event: MouseEvent): void {
@@ -365,25 +458,25 @@ export class App implements OnInit {
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
     const clamp = (n: number) => Math.max(0, Math.min(100, n));
-    this.positions.update((pos) => ({
-      ...pos,
-      [id]: { x: clamp(x), y: clamp(y) },
-    }));
+    const pos = { x: clamp(x), y: clamp(y) };
+    this.positions.update((prev) => ({ ...prev, [id]: pos }));
     this.placementQueue.update((q) => q.slice(1));
+    this.persistPosition(id, pos);
   }
 
   /** Transport time between two production lines, in timeline units. */
-  protected transportTime(fromId: number, toId: number): number {
-    if (this.transportMode() === 'instant') return 0;
-    const a = this.positions()[fromId];
-    const b = this.positions()[toId];
+  protected transportTime(fromLineId: number, toLineId: number): number {
+    if (this.transportMode() === 'off') return 0;
+    if (fromLineId === toLineId) return 0;
+    const a = this.positions()[fromLineId];
+    const b = this.positions()[toLineId];
     if (!a || !b) return 0;
-    return this.distance(fromId, toId) / (this.transportSpeed() || 1);
+    return this.distance(fromLineId, toLineId) / (this.transportSpeed() || 1);
   }
 
-  private distance(fromId: number, toId: number): number {
-    const a = this.positions()[fromId];
-    const b = this.positions()[toId];
+  private distance(fromLineId: number, toLineId: number): number {
+    const a = this.positions()[fromLineId];
+    const b = this.positions()[toLineId];
     if (!a || !b) return 0;
     const dx = a.x - b.x;
     const dy = a.y - b.y;
@@ -444,9 +537,9 @@ export class App implements OnInit {
         const prSched = sched.get(pr);
         const prTask = taskById.get(pr);
         if (!prSched || !prTask) continue;
-        // Same-production predecessors (line order) have zero transport;
-        // cross-production dependencies pay the transport delay.
-        const delay = this.transportTime(prTask.productionId, t.productionId);
+        // Same-line predecessors (line order) have zero transport; a
+        // dependency on a different line pays the transport delay.
+        const delay = this.transportTime(prTask.lineId, t.lineId);
         start = Math.max(start, prSched.end + delay);
       }
       sched.set(id, { start, end: start + duration });
@@ -493,20 +586,26 @@ export class App implements OnInit {
         for (const depId of t.dependsOnIds) {
           const producer = taskById.get(depId);
           if (!producer) continue;
-          const time = this.transportTime(producer.productionId, t.productionId);
+          const time = this.transportTime(producer.lineId, t.lineId);
           if (time <= 0) continue;
           const producerEnd = sched.get(depId)?.end ?? producer.endTime;
+          const fromLabel = this.taskLineLabel(
+            producer.name,
+            producer.productionId,
+            producer.lineIndex,
+          );
+          const toLabel = this.taskLineLabel(t.name, t.productionId, t.lineIndex);
           edges.push({
             id: `${depId}-${t.id}`,
-            label: `${producer.name} → ${t.name}`,
-            fromId: producer.productionId,
-            toId: t.productionId,
+            label: `${fromLabel} → ${toLabel}`,
+            fromId: producer.lineId,
+            toId: t.lineId,
             producerTaskId: producer.id,
             consumerTaskId: t.id,
             startTime: producerEnd,
             endTime: producerEnd + time,
             time,
-            distance: this.distance(producer.productionId, t.productionId),
+            distance: this.distance(producer.lineId, t.lineId),
           });
         }
       }

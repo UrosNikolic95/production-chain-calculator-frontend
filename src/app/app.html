@@ -155,36 +155,46 @@
     <div class="card__header">
       <h2 class="card__title">Logistics Map</h2>
       <div class="map-toolbar">
-        <div class="mode-buttons" role="group" aria-label="Transport mode">
+        <div class="mode-buttons" role="group" aria-label="Logistics map">
           <button
             type="button"
             class="btn btn--secondary mode-btn"
-            [class.mode-btn--active]="transportMode() === 'instant'"
-            (click)="setInstant()"
-          >Instant transport</button>
+            [class.mode-btn--active]="transportMode() !== 'off'"
+            (click)="setWithMap()"
+          >With logistics map</button>
           <button
             type="button"
             class="btn btn--secondary mode-btn"
-            [class.mode-btn--active]="transportMode() === 'random'"
-            (click)="setRandom()"
-          >Random positions</button>
-          <button
-            type="button"
-            class="btn btn--secondary mode-btn"
-            [class.mode-btn--active]="transportMode() === 'manual'"
-            (click)="setManual()"
-          >Manual placement</button>
+            [class.mode-btn--active]="transportMode() === 'off'"
+            (click)="setWithoutMap()"
+          >Without logistics map</button>
         </div>
-        <label class="field field--speed">
-          <span class="field__label">Transport speed</span>
-          <input
-            class="control"
-            type="number"
-            min="1"
-            [ngModel]="transportSpeed()"
-            (ngModelChange)="transportSpeed.set($event || 1)"
-          />
-        </label>
+        @if (transportMode() !== 'off') {
+          <div class="mode-buttons" role="group" aria-label="Positioning">
+            <button
+              type="button"
+              class="btn btn--secondary mode-btn"
+              [class.mode-btn--active]="transportMode() === 'random'"
+              (click)="setRandom()"
+            >Random positions</button>
+            <button
+              type="button"
+              class="btn btn--secondary mode-btn"
+              [class.mode-btn--active]="transportMode() === 'manual'"
+              (click)="setManual()"
+            >Manual placement</button>
+          </div>
+          <label class="field field--speed">
+            <span class="field__label">Transport speed</span>
+            <input
+              class="control"
+              type="number"
+              min="1"
+              [ngModel]="transportSpeed()"
+              (ngModelChange)="transportSpeed.set($event || 1)"
+            />
+          </label>
+        }
       </div>
     </div>
 
@@ -196,7 +206,7 @@
           </span>
           @for (id of placementQueue(); track id; let i = $index) {
             <span class="queue-chip" [class.queue-chip--selected]="i === 0">
-              {{ productionName(id) }}
+              {{ lineLabel(id) }}
             </span>
           }
         } @else {
@@ -207,7 +217,7 @@
       </div>
     }
 
-    @if (transportMode() !== 'instant') {
+    @if (transportMode() !== 'off') {
     <div
       class="map"
       [class.map--placing]="isPlacing()"
@@ -229,20 +239,20 @@
         }
       </svg>
 
-      @for (p of placedProductions(); track p.id) {
+      @for (s of placedLines(); track s.id) {
         <div
           class="map-pin"
-          [style.left.%]="posOf(p.id)!.x"
-          [style.top.%]="posOf(p.id)!.y"
+          [style.left.%]="posOf(s.id)!.x"
+          [style.top.%]="posOf(s.id)!.y"
         >
           <span class="map-pin__dot"></span>
-          <span class="map-pin__label">{{ p.name || 'Line ' + p.id }}</span>
+          <span class="map-pin__label">{{ slotLabel(s) }}</span>
         </div>
       }
 
       @if (isPlacing()) {
         <div class="map__placing-badge">
-          Placing: {{ productionName(selectedForPlacement()!) }}
+          Placing: {{ lineLabel(selectedForPlacement()!) }}
         </div>
       }
     </div>
@@ -258,7 +268,9 @@
         <table class="timeline">
           @for (line of scheduledLines(); track $index) {
             <tr>
-              <td class="line-label">{{ line.name }}</td>
+              <td class="line-label">
+                {{ taskLineLabel(line.name, line.productionId, line.lineIndex) }}
+              </td>
               <td class="line-track">
                 @for (t of line.tasks; track t.id) {
                   <div

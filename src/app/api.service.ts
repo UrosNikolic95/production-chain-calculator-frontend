@@ -18,6 +18,15 @@ export interface Consumption {
   quantity: number;
 }
 
+/** One physical production line of a production, with its map position. */
+export interface ProductionLine {
+  id: number;
+  productionId: number;
+  lineIndex: number;
+  positionX: number;
+  positionY: number;
+}
+
 export interface Production {
   id: number;
   workspaceId: number;
@@ -27,11 +36,14 @@ export interface Production {
   productionLines: number;
   productionTime: number;
   consumptions: Consumption[];
+  lines: ProductionLine[];
 }
 
 export interface CalculationTask {
   id: number;
   productionId: number;
+  lineId: number;
+  lineIndex: number;
   name: string;
   quantity: number;
   startTime: number;
@@ -42,6 +54,8 @@ export interface CalculationTask {
 
 export interface CalculationLine {
   productionId: number;
+  lineId: number;
+  lineIndex: number;
   name: string;
   tasks: CalculationTask[];
 }
@@ -107,6 +121,16 @@ export class ApiService {
 
   deleteConsumption(id: number): Observable<void> {
     return this.http.delete<void>(`${API_BASE}/consumptions/${id}`);
+  }
+
+  updateProductionLine(
+    id: number,
+    patch: { positionX?: number; positionY?: number },
+  ): Observable<ProductionLine> {
+    return this.http.patch<ProductionLine>(
+      `${API_BASE}/production-lines/${id}`,
+      patch,
+    );
   }
 
   calculate(): Observable<CalculationResult> {
