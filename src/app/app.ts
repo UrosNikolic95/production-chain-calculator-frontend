@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   ApiService,
@@ -63,13 +63,26 @@ interface MapRoute {
   y2: number;
 }
 
+/** A transport shipment in flight, drawn as a dot on the map during playback. */
+interface TransportDot {
+  x: number;
+  y: number;
+  label: string;
+}
+
+/** The produced-so-far segment of a line's currently running task. */
+interface LineProgress {
+  left: number;
+  width: number;
+}
+
 @Component({
   selector: 'app-root',
   imports: [FormsModule],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
-export class App implements OnInit {
+export class App implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
 
   protected readonly workspace = signal<Workspace | null>(null);
@@ -622,6 +635,127 @@ export class App implements OnInit {
       `End time: ${e.endTime.toFixed(2)}`,
       `Duration: ${e.time.toFixed(2)}`,
     ].join('\n');
+  }
+
+  // ---------- Simulation playback ----------
+
+  protected readonly simRunning = signal(false);
+  /** Current simulation moment, in timeline units (cm), same scale as tasks. */
+  protected readonly simTime = signal(0);
+  /** Playback rate in timeline units per real second. */
+  protected readonly playbackSpeed = signal(3);
+  private rafId: number | null = null;
+  private lastFrame = 0;
+
+  /** Total length of the schedule, i.e. when the last task/transport ends. */
+  protected readonly simDuration = computed<number>(() => {
+    let max = 0;
+    for (const line of this.scheduledLines()) {
+      for (const t of line.tasks) if (t.endTime > max) max = t.endTime;
+    }
+    for (const e of this.transportEdges()) if (e.endTime > max) max = e.endTime;
+    return max;
+  });
+
+  protected toggleSimulation(): void {
+    if (this.simRunning()) this.pauseSimulation();
+    else this.playSimulation();
+  }
+
+  protected playSimulation(): void {
+    if (!this.result() || this.simDuration() <= 0) return;
+    // Replay from the start once the previous run has reached the end.
+    if (this.simTime() >= this.simDuration()) this.simTime.set(0);
+    this.simRunning.set(true);
+    this.lastFrame = performance.now();
+    this.rafId = requestAnimationFrame(this.tick);
+  }
+
+  protected pauseSimulation(): void {
+    this.simRunning.set(false);
+    if (this.rafId != null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
+  protected resetSimulation(): void {
+    this.pauseSimulation();
+    this.simTime.set(0);
+  }
+
+  private readonly tick = (now: number): void => {
+    if (!this.simRunning()) return;
+    const dt = (now - this.lastFrame) / 1000;
+    this.lastFrame = now;
+    const end = this.simDuration();
+    const next = this.simTime() + dt * this.playbackSpeed();
+    if (next >= end) {
+      // Land exactly on the end, then stop (which hides the playhead).
+      this.simTime.set(end);
+      this.pauseSimulation();
+      return;
+    }
+    this.simTime.set(next);
+    this.rafId = requestAnimationFrame(this.tick);
+  };
+
+  /** Shipments currently in flight, positioned along their route on the map. */
+  protected readonly transportDots = computed<TransportDot[]>(() => {
+    if (!this.simRunning()) return [];
+    const t = this.simTime();
+    const pos = this.positions();
+    const dots: TransportDot[] = [];
+    for (const e of this.transportEdges()) {
+      if (t < e.startTime || t > e.endTime) continue;
+      const a = pos[e.fromId];
+      const b = pos[e.toId];
+      if (!a || !b) continue;
+      const span = e.endTime - e.startTime;
+      const p = span > 0 ? (t - e.startTime) / span : 1;
+      dots.push({
+        x: a.x + (b.x - a.x) * p,
+        y: a.y + (b.y - a.y) * p,
+        label: e.label,
+      });
+    }
+    return dots;
+  });
+
+  /**
+   * Fraction (0–1) of the task currently running on production line `lineId`,
+   * or null when nothing is in production there at the current moment. Used to
+   * fill the progress bar above each map pin.
+   */
+  protected mapLineProgress(lineId: number): number | null {
+    if (!this.simRunning()) return null;
+    const t = this.simTime();
+    for (const line of this.scheduledLines()) {
+      if (line.lineId !== lineId) continue;
+      for (const task of line.tasks) {
+        if (t >= task.startTime && t < task.endTime) {
+          const span = task.endTime - task.startTime;
+          return span > 0 ? (t - task.startTime) / span : 1;
+        }
+      }
+    }
+    return null;
+  }
+
+  /** The produced-so-far segment of the task running on `line` right now. */
+  protected activeProgress(line: CalculationLine): LineProgress | null {
+    if (!this.simRunning()) return null;
+    const t = this.simTime();
+    for (const task of line.tasks) {
+      if (t >= task.startTime && t < task.endTime) {
+        return { left: task.startTime, width: t - task.startTime };
+      }
+    }
+    return null;
+  }
+
+  ngOnDestroy(): void {
+    this.pauseSimulation();
   }
 
   calculate(): void {

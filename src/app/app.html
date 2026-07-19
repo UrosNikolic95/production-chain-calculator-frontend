@@ -245,9 +245,25 @@
           [style.left.%]="posOf(s.id)!.x"
           [style.top.%]="posOf(s.id)!.y"
         >
+          @if (simRunning()) {
+            <span class="map-progress">
+              <span
+                class="map-progress__fill"
+                [style.transform]="'scaleX(' + (mapLineProgress(s.id) ?? 0) + ')'"
+              ></span>
+            </span>
+          }
           <span class="map-pin__dot"></span>
           <span class="map-pin__label">{{ slotLabel(s) }}</span>
         </div>
+      }
+
+      @for (dot of transportDots(); track $index) {
+        <div
+          class="transport-dot"
+          [style.left.%]="dot.x"
+          [style.top.%]="dot.y"
+        ></div>
       }
 
       @if (isPlacing()) {
@@ -257,6 +273,39 @@
       }
     </div>
     }
+
+    <div class="actions actions--footer sim-controls">
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="!result() || simDuration() <= 0"
+        (click)="toggleSimulation()"
+      >{{ simRunning() ? '❚❚ Pause' : '▶ Play' }}</button>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        [disabled]="!result() || (simTime() === 0 && !simRunning())"
+        (click)="resetSimulation()"
+      >Reset</button>
+      <label class="field field--speed">
+        <span class="field__label">Playback speed</span>
+        <input
+          class="control"
+          type="number"
+          min="0.1"
+          step="0.1"
+          [ngModel]="playbackSpeed()"
+          (ngModelChange)="playbackSpeed.set($event || 1)"
+        />
+      </label>
+      @if (result()) {
+        <span class="sim-clock">
+          t = {{ simTime().toFixed(1) }} / {{ simDuration().toFixed(1) }}
+        </span>
+      } @else {
+        <span class="sim-hint">Run “Calculate” to enable the simulation.</span>
+      }
+    </div>
   </section>
 
   @if (result(); as r) {
@@ -271,7 +320,7 @@
               <td class="line-label">
                 {{ taskLineLabel(line.name, line.productionId, line.lineIndex) }}
               </td>
-              <td class="line-track">
+              <td class="line-track" [style.minWidth.cm]="simDuration()">
                 @for (t of line.tasks; track t.id) {
                   <div
                     class="task"
@@ -289,6 +338,16 @@
                     [style.width.cm]="t.endTime - t.startTime"
                   ></div>
                 }
+                @if (activeProgress(line); as prog) {
+                  <div
+                    class="line-progress"
+                    [style.left.cm]="prog.left"
+                    [style.width.cm]="prog.width"
+                  ></div>
+                }
+                @if (simRunning()) {
+                  <div class="timeline-playhead" [style.left.cm]="simTime()"></div>
+                }
               </td>
             </tr>
           }
@@ -300,7 +359,7 @@
             @for (e of transportEdges(); track e.id) {
               <tr>
                 <td class="line-label">{{ e.label }}</td>
-                <td class="line-track">
+                <td class="line-track" [style.minWidth.cm]="simDuration()">
                   <div
                     class="task task--transport"
                     [class.is-highlight]="transportActive(e)"
@@ -310,6 +369,9 @@
                     (mousemove)="moveTooltip($event)"
                     (mouseleave)="hoveredEdgeId.set(null); hideTooltip()"
                   ></div>
+                  @if (simRunning()) {
+                    <div class="timeline-playhead" [style.left.cm]="simTime()"></div>
+                  }
                 </td>
               </tr>
             }
